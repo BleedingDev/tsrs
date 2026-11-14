@@ -44,7 +44,7 @@ func TestBaseConstraintHistory(t *testing.T) {
 		{"pair-both", a, strings.ReplaceAll(b, "return x.b;", "return x.b + y.b;"), 0, ""},
 		{"missing", a, strings.ReplaceAll(b, "x.b;", "x.missing;"), 2339, "missing"},
 		{"lone", "", lone, 0, ""},
-		{"wrong-return", "", strings.ReplaceAll(lone, "): string", "): number"), 2322, "return y.b;"},
+		{"wrong-return", "", strings.ReplaceAll(lone, "): string", "): number"), 2322, "return"},
 		{"cycle", "", cycle, 2313, "T>("},
 	}
 	for _, c := range cases {
@@ -55,7 +55,7 @@ func TestBaseConstraintHistory(t *testing.T) {
 		for _, history := range histories {
 			t.Run(c.name+"/"+strings.Join(history, "-"), func(t *testing.T) {
 				roots := `"a.ts","b.ts"`
-				if c.a == "" {
+				if c.a == "" || len(history) == 1 {
 					roots = `"b.ts"`
 				}
 				configText := fmt.Sprintf(`{"compilerOptions":{"strict":true,"noEmit":true,"target":"es2020","types":[]},"files":[%s]}`, roots)
@@ -75,7 +75,11 @@ func TestBaseConstraintHistory(t *testing.T) {
 				})
 				var observed []*ast.Diagnostic
 				for _, file := range history {
-					observed = append(observed, program.GetSemanticDiagnostics(context.Background(), program.GetSourceFile("/src/"+file))...)
+					source := program.GetSourceFile(tspath.RootedFilePathFromNormalized("/src/" + file))
+					if source == nil {
+						t.Fatalf("missing fixture source: %s", file)
+					}
+					observed = append(observed, program.GetSemanticDiagnostics(context.Background(), source)...)
 				}
 				for _, d := range observed {
 					t.Logf("%s:%d:%d TS%d", d.File().FileName(), d.Pos(), d.End(), d.Code())

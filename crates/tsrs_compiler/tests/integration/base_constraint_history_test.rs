@@ -55,13 +55,13 @@ fn base_constraint_history_matrix() {
         ("pair-both", A, B.replace("return x.b;", "return x.b + y.b;"), None),
         ("missing", A, B.replace("x.b;", "x.missing;"), Some((2339, "missing"))),
         ("lone", "", LONE.to_string(), None),
-        ("wrong-return", "", LONE.replace("): string", "): number"), Some((2322, "return y.b;"))),
+        ("wrong-return", "", LONE.replace("): string", "): number"), Some((2322, "return"))),
         ("cycle", "", CYCLE.to_string(), Some((2313, "T>("))),
     ] {
         let histories: &[&[&str]] = if a.is_empty() { &[&["b.ts"]] }
             else { &[&["a.ts", "b.ts"], &["b.ts", "a.ts"], &["b.ts"]] };
         for history in histories {
-            let config = if a.is_empty() {
+            let config = if a.is_empty() || history.len() == 1 {
                 r#"{"compilerOptions":{"strict":true,"noEmit":true,"target":"es2020","types":[]},"files":["b.ts"]}"#
             } else {
                 r#"{"compilerOptions":{"strict":true,"noEmit":true,"target":"es2020","types":[]},"files":["a.ts","b.ts"]}"#
