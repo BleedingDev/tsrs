@@ -1,3 +1,5 @@
 npm/tsrs/bin/tsrs text eol=lf
 npm/tsrs/bin/tsrs-lint text eol=lf
 npm/tsrs/tsdk/tsgo text eol=lf
+# Unified-diff context has a required space before Go's tab indentation.
+tools/oracle/base-constraint-history/indexed-access-identity.patch whitespace=-space-before-tab
