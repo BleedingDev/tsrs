@@ -12,7 +12,6 @@ import (
 	"github.com/microsoft/TypeScript/tsc/internal/ast"
 	"github.com/microsoft/TypeScript/tsc/internal/bundled"
 	"github.com/microsoft/TypeScript/tsc/internal/checker"
-	"github.com/microsoft/TypeScript/tsc/internal/tsoptions"
 	"github.com/microsoft/TypeScript/tsc/internal/tspath"
 	"github.com/microsoft/TypeScript/tsc/internal/vfs/vfstest"
 )
@@ -25,6 +24,10 @@ type historyPool struct {
 func (p *historyPool) GetChecker(_ context.Context, _ *ast.SourceFile) (*checker.Checker, func()) {
 	p.lock.Lock()
 	return p.checker, p.lock.Unlock
+}
+func newHistoryPool(p *Program) CheckerPool {
+	c, lock := checker.NewChecker(p, nil)
+	return &historyPool{c, lock}
 }
 func TestBaseConstraintHistory(t *testing.T) {
 	read := func(name string) string {
@@ -62,17 +65,7 @@ func TestBaseConstraintHistory(t *testing.T) {
 				fs := bundled.WrapFS(vfstest.FromMap(map[string]any{
 					"/src/tsconfig.json": configText, "/src/a.ts": c.a, "/src/b.ts": c.b,
 				}, tspath.CaseSensitive))
-				config, errors := tsoptions.GetParsedCommandLineOfConfigFile("/src/tsconfig.json", nil, nil, fs, nil)
-				if len(errors) != 0 {
-					t.Fatal(errors)
-				}
-				program := NewProgram(ProgramOptions{
-					Config: config, Host: NewCompilerHost(fs, bundled.LibPath(), nil, nil, nil),
-					CreateCheckerPool: func(p *Program) CheckerPool {
-						checker, lock := checker.NewChecker(p, nil)
-						return &historyPool{checker, lock}
-					},
-				})
+				program := newHistoryProgram(t, fs)
 				var observed []*ast.Diagnostic
 				for _, file := range history {
 					source := program.GetSourceFile(tspath.RootedFilePathFromNormalized("/src/" + file))

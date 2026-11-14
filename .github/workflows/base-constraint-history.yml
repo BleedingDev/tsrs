@@ -58,6 +58,8 @@ jobs:
       - name: Candidate Go histories and type-derived controls
         id: oracle
         continue-on-error: true
+        env:
+          HISTORY_API: current
         run: node tools/oracle/base-constraint-history/run.mjs
       - name: Retain candidate native outcome
         if: always()
