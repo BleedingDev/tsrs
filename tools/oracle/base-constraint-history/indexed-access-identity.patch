@@ -1,7 +1,7 @@
 diff --git a/tsc/internal/checker/checker.go b/tsc/internal/checker/checker.go
 --- a/tsc/internal/checker/checker.go
 +++ b/tsc/internal/checker/checker.go
-@@ -28298,6 +28298,16 @@
+@@ -28298,6 +28298,18 @@
  	// yet triggered the deeply nested limiter. We have no test cases that actually get to 50 levels of
  	// nesting, so it is effectively just a safety stop.
  	identity := getRecursionIdentity(t)
@@ -13,7 +13,9 @@ diff --git a/tsc/internal/checker/checker.go b/tsc/internal/checker/checker.go
 +		for target.flags&TypeFlagsIndexedAccess != 0 {
 +			target = target.AsIndexedAccessType().objectType
 +		}
-+		identity = asRecursionId(target)
++		if target.flags&TypeFlagsTypeParameter != 0 {
++			identity = asRecursionId(target)
++		}
 +	}
  	if len(stack) < 10 || len(stack) < 50 && !slices.Contains(stack, identity) {
  		constraint = c.computeBaseConstraint(c.getSimplifiedType(t /*writing*/, false), append(stack, identity))

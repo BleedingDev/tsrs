@@ -101,3 +101,35 @@ func TestBaseConstraintHistory(t *testing.T) {
 		}
 	}
 }
+
+// This is a guard-coverage control, not a claim that its finite input is itself
+// nonterminating or that every form of expanding instantiation has been proved.
+func TestBaseConstraintLimiter(t *testing.T) {
+	chain := `T` + strings.Repeat(`["a"]`, 20)
+	files := map[string]any{
+		"/src/tsconfig.json": `{"compilerOptions":{"strict":true,"noEmit":true,"target":"es2020","types":[]},"files":["a.ts","b.ts"]}`,
+		"/src/a.ts":          `const f: typeof victim = <U extends Box>(x: U, y: { b: string }) => x.b;`,
+		"/src/b.ts": "interface Box { a: Box; b: string }\n" +
+			"function victim<T extends Box>(x: T, y: " + chain + "): string { return x.b; }",
+	}
+	fs := bundled.WrapFS(vfstest.FromMap(files, tspath.CaseSensitive))
+	program := newHistoryProgram(t, fs)
+	checker.ResetBaseConstraintGuardProbe()
+	for _, file := range []string{"a.ts", "b.ts"} {
+		source := program.GetSourceFile(tspath.RootedFilePathFromNormalized("/src/" + file))
+		if source == nil {
+			t.Fatalf("missing limiter source: %s", file)
+		}
+		for _, d := range program.GetSemanticDiagnostics(context.Background(), source) {
+			t.Logf("limiter %s:%d:%d TS%d", d.File().FileName(), d.Pos(), d.End(), d.Code())
+		}
+	}
+	probe := checker.ReadBaseConstraintGuardProbe()
+	t.Logf("base-constraint guard coverage: %+v", probe)
+	if probe.DeepIndexedVisits == 0 || probe.RepeatedIdentityCuts == 0 {
+		t.Fatal("control did not exercise the repeated indexed-parameter cutoff at depth >= 10")
+	}
+	if probe.MaxStackDepth > 50 {
+		t.Fatal("base-constraint stack exceeded its unchanged ceiling")
+	}
+}
