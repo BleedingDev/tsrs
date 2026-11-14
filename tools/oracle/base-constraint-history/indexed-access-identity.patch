@@ -1,28 +1,20 @@
-diff --git a/tsc/internal/checker/relater.go b/tsc/internal/checker/relater.go
---- a/tsc/internal/checker/relater.go
-+++ b/tsc/internal/checker/relater.go
-@@ -796,6 +796,9 @@
- }
- 
- func hasMatchingRecursionIdentity(t *Type, identity RecursionId) bool {
+diff --git a/tsc/internal/checker/checker.go b/tsc/internal/checker/checker.go
+--- a/tsc/internal/checker/checker.go
++++ b/tsc/internal/checker/checker.go
+@@ -28298,6 +28298,16 @@
+ 	// yet triggered the deeply nested limiter. We have no test cases that actually get to 50 levels of
+ 	// nesting, so it is effectively just a safety stop.
+ 	identity := getRecursionIdentity(t)
 +	if t.flags&TypeFlagsIndexedAccess != 0 {
-+		return getRecursionIdentity(t) == identity
-+	}
- 	target := getRecursionIdentityTarget(t)
- 	if target.flags&TypeFlagsIntersection != 0 {
- 		for _, t := range target.Types() {
-@@ -809,6 +812,14 @@
- }
- 
- func getRecursionIdentity(t *Type) RecursionId {
-+	if t.flags&TypeFlagsIndexedAccess != 0 {
-+		// Preserve the leftmost object type's identity, not its parameter symbol.
-+		// A finite T["a"] chain must not collide with T's explicit constraint.
-+		for t.flags&TypeFlagsIndexedAccess != 0 {
-+			t = t.AsIndexedAccessType().objectType
++		// Only this constraint-resolution stack distinguishes a finite indexed
++		// chain's leftmost object from the explicit parameter constraint.
++		// Shared relation and inference nesting identities remain unchanged.
++		target := t.AsIndexedAccessType().objectType
++		for target.flags&TypeFlagsIndexedAccess != 0 {
++			target = target.AsIndexedAccessType().objectType
 +		}
-+		return asRecursionId(t)
++		identity = asRecursionId(target)
 +	}
- 	return getRecursionIdentityFromTarget(getRecursionIdentityTarget(t))
- }
- 
+ 	if len(stack) < 10 || len(stack) < 50 && !slices.Contains(stack, identity) {
+ 		constraint = c.computeBaseConstraint(c.getSimplifiedType(t /*writing*/, false), append(stack, identity))
+ 	}

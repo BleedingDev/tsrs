@@ -13,7 +13,7 @@ const adapter = resolve(`tools/oracle/base-constraint-history/${api}_api_test.go
 const virtualAdapter = resolve(reference, 'tsc/internal/compiler/base_constraint_history_api_test.go');
 const overlay = resolve(work, 'overlay.json');
 writeFileSync(overlay, JSON.stringify({ Replace: { [virtual]: replacement, [virtualAdapter]: adapter } }));
-const result = spawnSync('go', ['test', '-overlay', overlay, './internal/compiler', '-run', '^TestBaseConstraintHistory$', '-count=1', '-v'], {
+const result = spawnSync('go', ['test', '-overlay', overlay, './internal/compiler', '-run', '^TestBaseConstraintHistory$', '-count=1', '-timeout=2m', '-v'], {
   cwd: resolve(reference, 'tsc'),
   env: { ...process.env, GOTOOLCHAIN: 'auto', GOWORK: 'off', HISTORY_FIXTURES: resolve('crates/tsrs_compiler/testdata/base_constraint_history') },
   encoding: 'utf8',

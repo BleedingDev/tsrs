@@ -38,6 +38,9 @@ func TestBaseConstraintHistory(t *testing.T) {
 		return string(data)
 	}
 	a, b, lone, cycle := read("a.ts"), read("b.ts"), read("lone.ts"), read("cycle.ts")
+	mapped := "type Mapped<T> = { [K in keyof T]: T[K] };\n" +
+		strings.Replace(b, `y: T["a"]`, `y: Mapped<T>["a"]`, 1)
+	intersection := strings.Replace(b, `y: T["a"]`, `y: (T & { marker?: never })["a"]`, 1)
 	cases := []struct {
 		name, a, b string
 		code       int32
@@ -45,10 +48,13 @@ func TestBaseConstraintHistory(t *testing.T) {
 	}{
 		{"pair", a, b, 0, ""},
 		{"pair-both", a, strings.ReplaceAll(b, "return x.b;", "return x.b + y.b;"), 0, ""},
+		{"mapped-leftmost", a, mapped, 0, ""},
+		{"intersection-leftmost", a, intersection, 0, ""},
 		{"missing", a, strings.ReplaceAll(b, "x.b;", "x.missing;"), 2339, "missing"},
 		{"lone", "", lone, 0, ""},
 		{"wrong-return", "", strings.ReplaceAll(lone, "): string", "): number"), 2322, "return"},
 		{"cycle", "", cycle, 2313, "T>("},
+		{"indexed-expansion", "", read("expanding.ts"), 2589, "Expand<{ a: {} }>"},
 	}
 	for _, c := range cases {
 		histories := [][]string{{"a.ts", "b.ts"}, {"b.ts", "a.ts"}, {"b.ts"}}
