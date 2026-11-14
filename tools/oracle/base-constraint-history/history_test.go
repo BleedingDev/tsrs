@@ -105,11 +105,20 @@ func TestBaseConstraintHistory(t *testing.T) {
 // This is a guard-coverage control, not a claim that its finite input is itself
 // nonterminating or that every form of expanding instantiation has been proved.
 func TestBaseConstraintLimiter(t *testing.T) {
-	chain := `T` + strings.Repeat(`["a"]`, 20)
+	for _, root := range []string{"T", "Mapped<T>"} {
+		t.Run(root, func(t *testing.T) {
+			runBaseConstraintLimiter(t, root)
+		})
+	}
+}
+
+func runBaseConstraintLimiter(t *testing.T, root string) {
+	t.Helper()
+	chain := root + strings.Repeat(`["a"]`, 20)
 	files := map[string]any{
 		"/src/tsconfig.json": `{"compilerOptions":{"strict":true,"noEmit":true,"target":"es2020","types":[]},"files":["a.ts","b.ts"]}`,
 		"/src/a.ts":          `const f: typeof victim = <U extends Box>(x: U, y: { b: string }) => x.b;`,
-		"/src/b.ts": "interface Box { a: Box; b: string }\n" +
+		"/src/b.ts": "type Mapped<T> = { [K in keyof T]: T[K] };\ninterface Box { a: Box; b: string }\n" +
 			"function victim<T extends Box>(x: T, y: " + chain + "): string { return x.b; }",
 	}
 	fs := bundled.WrapFS(vfstest.FromMap(files, tspath.CaseSensitive))
@@ -131,5 +140,8 @@ func TestBaseConstraintLimiter(t *testing.T) {
 	}
 	if probe.MaxStackDepth > 50 {
 		t.Fatal("base-constraint stack exceeded its unchanged ceiling")
+	}
+	if root == "Mapped<T>" && probe.MappedParameterVisits == 0 {
+		t.Fatal("mapped control did not reach a normalized parameter target")
 	}
 }

@@ -1,18 +1,16 @@
 diff --git a/tsc/internal/checker/checker.go b/tsc/internal/checker/checker.go
 --- a/tsc/internal/checker/checker.go
 +++ b/tsc/internal/checker/checker.go
-@@ -28298,6 +28298,18 @@
+@@ -28298,6 +28298,16 @@
  	// yet triggered the deeply nested limiter. We have no test cases that actually get to 50 levels of
  	// nesting, so it is effectively just a safety stop.
  	identity := getRecursionIdentity(t)
 +	if t.flags&TypeFlagsIndexedAccess != 0 {
-+		// Only this constraint-resolution stack distinguishes a finite indexed
-+		// chain's leftmost object from the explicit parameter constraint.
-+		// Shared relation and inference nesting identities remain unchanged.
-+		target := t.AsIndexedAccessType().objectType
-+		for target.flags&TypeFlagsIndexedAccess != 0 {
-+			target = target.AsIndexedAccessType().objectType
-+		}
++		// Preserve upstream mapped-type normalization, but distinguish an
++		// indexed chain's parameter TYPE from its direct constraint SYMBOL.
++		// Shared relation/inference identities and non-parameter targets stay
++		// unchanged; fresh mapped/reference objects get no new identities.
++		target := getRecursionIdentityTarget(t)
 +		if target.flags&TypeFlagsTypeParameter != 0 {
 +			identity = asRecursionId(target)
 +		}
