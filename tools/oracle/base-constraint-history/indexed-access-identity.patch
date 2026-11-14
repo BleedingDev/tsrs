@@ -1,0 +1,28 @@
+diff --git a/tsc/internal/checker/relater.go b/tsc/internal/checker/relater.go
+--- a/tsc/internal/checker/relater.go
++++ b/tsc/internal/checker/relater.go
+@@ -796,6 +796,9 @@
+ }
+ 
+ func hasMatchingRecursionIdentity(t *Type, identity RecursionId) bool {
++	if t.flags&TypeFlagsIndexedAccess != 0 {
++		return getRecursionIdentity(t) == identity
++	}
+ 	target := getRecursionIdentityTarget(t)
+ 	if target.flags&TypeFlagsIntersection != 0 {
+ 		for _, t := range target.Types() {
+@@ -809,6 +812,14 @@
+ }
+ 
+ func getRecursionIdentity(t *Type) RecursionId {
++	if t.flags&TypeFlagsIndexedAccess != 0 {
++		// Preserve the leftmost object type's identity, not its parameter symbol.
++		// A finite T["a"] chain must not collide with T's explicit constraint.
++		for t.flags&TypeFlagsIndexedAccess != 0 {
++			t = t.AsIndexedAccessType().objectType
++		}
++		return asRecursionId(t)
++	}
+ 	return getRecursionIdentityFromTarget(getRecursionIdentityTarget(t))
+ }
+ 
