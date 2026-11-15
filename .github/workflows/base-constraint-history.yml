@@ -2,7 +2,7 @@ name: Indexed access identity correction experiment
 
 on:
   push:
-    branches: [test/base-constraint-history]
+    branches: [test/base-constraint-history, test/conditional-root-constraint]
 
 permissions:
   contents: read
@@ -12,9 +12,71 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  conditional-root:
+    name: Conditional-root correction and native conformance
+    if: github.repository == 'BleedingDev/tsrs' && github.ref == 'refs/heads/test/conditional-root-constraint'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '26.12.0'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: microsoft/TypeScript
+          ref: 3e9236361fa97a9e6c685f4833ac457ae2d8c50a
+          path: ts-ref
+          persist-credentials: false
+      - name: Verify actual failing compiler source pin
+        run: |
+          test "$(git -C ts-ref rev-parse HEAD)" = 3e9236361fa97a9e6c685f4833ac457ae2d8c50a
+          git -C ts-ref diff --exit-code HEAD -- tsc packages/typescript
+      - name: Apply the scoped conditional-root correction
+        run: |
+          patch="$GITHUB_WORKSPACE/tools/oracle/base-constraint-history/conditional-root-identity.patch"
+          git -C ts-ref apply --check "$patch"
+          git -C ts-ref apply "$patch"
+          git -C ts-ref diff --check
+          mkdir -p target/base-constraint-history
+          git -C ts-ref diff > target/base-constraint-history/conditional-compiler.patch
+          sha256sum "$patch" > target/base-constraint-history/conditional-patch-sha256.txt
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: ts-ref/tsc/go.mod
+          cache-dependency-path: ts-ref/tsc/go.sum
+      - name: Cold/depth-nine constraint regression
+        env:
+          HISTORY_API: pinned
+          HISTORY_CASE: conditional-root
+        run: node tools/oracle/base-constraint-history/run.mjs
+      - name: Existing nineteen histories and limiter controls
+        env:
+          HISTORY_API: pinned
+        run: node tools/oracle/base-constraint-history/run.mjs
+      - name: Existing checker and compiler tests
+        working-directory: ts-ref/tsc
+        run: GOWORK=off go test ./internal/checker ./internal/compiler -count=1
+      - name: Full native compiler conformance
+        working-directory: ts-ref/tsc
+        shell: bash
+        run: |
+          set -o pipefail
+          GOWORK=off go test ./internal/testrunner -run '^TestLocal$' -count=1 -timeout=30m \
+            2>&1 | tee "$GITHUB_WORKSPACE/target/base-constraint-history/conditional-conformance.log"
+      - name: Retain raw research assertions, including inconclusive shape rejection
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: conditional-root-research-${{ github.sha }}
+          path: target/base-constraint-history/
+          if-no-files-found: warn
+          retention-days: 14
   history:
     name: Go identity - ${{ matrix.candidate }}
-    if: github.repository == 'BleedingDev/tsrs'
+    if: github.repository == 'BleedingDev/tsrs' && github.ref == 'refs/heads/test/base-constraint-history'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
